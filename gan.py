@@ -3,7 +3,7 @@ from keras.layers import Dense, LeakyReLU, BatchNormalization, Reshape, Flatten
 from keras.optimizers import Adam
 import numpy as np
 import matplotlib.pyplot as plt
-
+import pickle
 
 class Gan:
     def __init__(
@@ -23,12 +23,13 @@ class Gan:
         optimizer = Adam(0.0002, 0.5)
 
         self.__build_discriminator()
+        self.discriminator.trainable = False
+        self.discriminator.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         self.__build_generator()
+        self.generator.compile(loss='binary_crossentropy', optimizer=optimizer)
 
         z = Input(shape=(self.latent_dim,))
         img = self.generator(z)
-
-        self.discriminator.trainable = False
 
         validity = self.discriminator(img)
 
@@ -84,8 +85,11 @@ class Gan:
                 axs[i, j].imshow(gen_imgs[cnt, :, :, 0], cmap='gray')
                 axs[i, j].axis('off')
                 cnt += 1
-        fig.savefig(f"images/{epoch}.png")
+        fig.savefig(f"{epoch}.png")
         plt.close()
+
+    def save(self):
+        pickle.dump(self, open("gan.model", "wb"))
 
     def train(self, training_data, epochs, batch_size=128, sample_interval=50):
         X_train = training_data
@@ -95,7 +99,7 @@ class Gan:
         fake = np.zeros((batch_size, 1))
 
         for epoch in range(epochs):
-            idx = np.random.randint(0, X_train[0], batch_size)
+            idx = np.random.randint(0.0, X_train.shape[0], batch_size)
             imgs = X_train[idx]
 
             noise = np.random.normal(0, 1, (batch_size, self.latent_dim))
@@ -111,3 +115,4 @@ class Gan:
             print(f"{epoch} [D loss: {d_loss[0]}, acc.: {100 * d_loss[1]}] [G loss: {g_loss}]")
             if epoch % sample_interval == 0:
                 self.sample_images(epoch)
+                self.save()
